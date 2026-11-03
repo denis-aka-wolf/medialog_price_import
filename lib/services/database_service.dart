@@ -1,25 +1,27 @@
 import 'package:dart_odbc/dart_odbc.dart';
+
 import '../models/app_settings.dart';
-import 'log_service.dart';
 
 class DatabaseService {
   DartOdbc? _client;
 
   bool get isConnected => _client != null;
 
-  String _connectionString(AppSettings s) {
-    final server = s.port.trim().isEmpty
-        ? s.server.trim()
-        : '${s.server.trim()},${s.port.trim()}';
+  String _connectionString(AppSettings settings) {
+    final server = settings.port.trim().isEmpty
+        ? settings.server.trim()
+        : '${settings.server.trim()},${settings.port.trim()}';
 
     final parts = <String>[
-      'DRIVER={${s.driver}}',
+      'DRIVER={${settings.driver}}',
       'SERVER=$server',
-      'DATABASE=${s.database}',
-      if (s.trustedConnection)
+      'DATABASE=${settings.database}',
+      if (settings.trustedConnection)
         'Trusted_Connection=Yes'
-      else
-        'UID=${s.username};PWD=${s.password}',
+      else ...[
+        'UID=${settings.username}',
+        'PWD=${settings.password}',
+      ],
       'TrustServerCertificate=Yes',
     ];
 
@@ -37,78 +39,46 @@ class DatabaseService {
 
     _client = client;
 
-    await client.execute('SELECT 1 AS connection_test');
+    try {
+      await client.execute('SELECT 1 AS connection_test');
+    } catch (_) {
+      _client = null;
+      await client.disconnect();
+      rethrow;
+    }
   }
 
-  Future<List<Map<String, dynamic>>> query(
-    String sql, {
-    List<Object?> params = const [],
-  }) async {
+  /// Выполняет SQL-запрос без ODBC-параметров.
+  ///
+  /// Запрос передаётся драйверу непосредственно через SQLExecDirectW.
+  Future<List<Map<String, dynamic>>> query(String sql) async {
     final client = _client;
 
     if (client == null) {
       throw StateError('Нет подключения к базе данных.');
     }
 
-    try {
-      return await client.execute(
-        sql,
-        params: params,
-      );
-    } catch (e, stackTrace) {
-      await LogService.instance.error(
-        'DatabaseService.query',
-        'Ошибка выполнения SQL-запроса.',
-        exception: e,
-        stackTrace: stackTrace,
-        context: {
-          'sql': sql,
-          'parameters': LogService.describeParameters(params),
-          'parameterCount': params.length,
-        },
-      );
-
-      rethrow;
-    }
+    return client.execute(sql);
   }
 
-  Future<void> execute(
-    String sql, {
-    List<Object?> params = const [],
-  }) async {
+  /// Выполняет SQL-команду без ODBC-параметров.
+  Future<void> execute(String sql) async {
     final client = _client;
 
     if (client == null) {
       throw StateError('Нет подключения к базе данных.');
     }
 
-    try {
-      await client.execute(
-        sql,
-        params: params,
-      );
-    } catch (e, stackTrace) {
-      await LogService.instance.error(
-        'DatabaseService.execute',
-        'Ошибка выполнения SQL-команды.',
-        exception: e,
-        stackTrace: stackTrace,
-        context: {
-          'sql': sql,
-          'parameters': LogService.describeParameters(params),
-          'parameterCount': params.length,
-        },
-      );
-
-      rethrow;
-    }
+    await client.execute(sql);
   }
 
   Future<void> disconnect() async {
     final client = _client;
+
     _client = null;
+
     if (client != null) {
       await client.disconnect();
     }
-  } 
+  }
 }
