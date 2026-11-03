@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _done = 0, _total = 0;
   String _filter = 'error';
   String _status = 'Не подключено к базе данных';
+  DateTime? _dateFrom;
 
   @override
   void initState() { super.initState(); _initialize(); }
@@ -141,6 +142,37 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _selectDate() async {
+    final now = DateTime.now();
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: _dateFrom ?? now,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      helpText: 'Выберите дату начала действия',
+      cancelText: 'Отмена',
+      confirmText: 'Выбрать',
+      builder: (context, child) {
+        return Localizations.override(
+          context: context,
+          locale: const Locale('ru', 'RU'),
+          child: child!,
+        );
+      },
+    );
+
+    if (selectedDate != null) {
+      setState(() {
+        _dateFrom = DateTime(
+          selectedDate.year,
+          selectedDate.month,
+          selectedDate.day,
+        );
+      });
+    }
+  }
+
   Widget _connectionBanner() => Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: BoxDecoration(color: _connected ? Colors.green.shade50 : Colors.orange.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: _connected ? Colors.green.shade200 : Colors.orange.shade200)), child: Row(children: [Icon(_connected ? Icons.cloud_done : Icons.cloud_off, color: _connected ? Colors.green.shade800 : Colors.orange.shade900), const SizedBox(width: 10), Expanded(child: Text(_status)), if (!_connected) TextButton(onPressed: _busy ? null : () => _showConnectionDialog(), child: const Text('Настроить'))]));
 
   Widget _sheetsPanel() => Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Листы Excel', style: Theme.of(context).textTheme.titleMedium), const SizedBox(height: 8), Expanded(child: _sheets.isEmpty ? const Center(child: Text('Выберите Excel-файл для анализа листов.')) : ListView.separated(itemCount: _sheets.length, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (context, i) { final s = _sheets[i]; return CheckboxListTile(value: s.valid && _selectedSheets.contains(s.name), onChanged: s.valid && !_busy ? (v) => setState(() => v == true ? _selectedSheets.add(s.name) : _selectedSheets.remove(s.name)) : null, title: Text(s.name), subtitle: Text('${s.rowCount} строк · ${s.message}'), secondary: Icon(s.valid ? Icons.check_circle : Icons.error, color: s.valid ? Colors.green : Colors.red), controlAffinity: ListTileControlAffinity.leading); }))])));
@@ -180,25 +212,165 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
   Widget _field(String key, String label, {bool required = true, bool obscure = false}) => Padding(padding: const EdgeInsets.only(bottom: 10), child: TextField(controller: controllers[key], obscureText: obscure, decoration: InputDecoration(labelText: label, isDense: true),));
 }
 
+
 class DefaultsDialog extends StatefulWidget {
   const DefaultsDialog({super.key, required this.initial});
+
   final AppSettings initial;
+
   @override
   State<DefaultsDialog> createState() => _DefaultsDialogState();
 }
+
 class _DefaultsDialogState extends State<DefaultsDialog> {
-  late final date = TextEditingController(text: widget.initial.defaultDateFrom);
-  late final devise = TextEditingController(text: widget.initial.defaultDeviseCode);
-  late final type = TextEditingController(text: widget.initial.defaultPriceTypeCode);
-  late final category = TextEditingController(text: widget.initial.defaultPriceCategoryCode);
+  late DateTime? dateFrom;
+  late final devise = TextEditingController(
+    text: widget.initial.defaultDeviseCode,
+  );
+  late final type = TextEditingController(
+    text: widget.initial.defaultPriceTypeCode,
+  );
+  late final category = TextEditingController(
+    text: widget.initial.defaultPriceCategoryCode,
+  );
+
   @override
-  void dispose() { date.dispose(); devise.dispose(); type.dispose(); category.dispose(); super.dispose(); }
+  void initState() {
+    super.initState();
+
+    dateFrom = _parseDate(widget.initial.defaultDateFrom);
+  }
+
+  DateTime? _parseDate(String value) {
+    if (value.trim().isEmpty) return null;
+
+    final parts = value.trim().split('.');
+
+    if (parts.length != 3) return null;
+
+    try {
+      return DateTime(
+        int.parse(parts[2]),
+        int.parse(parts[1]),
+        int.parse(parts[0]),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.'
+        '${date.month.toString().padLeft(2, '0')}.'
+        '${date.year}';
+  }
+
+  Future<void> _selectDate() async {
+    final now = DateTime.now();
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: dateFrom ?? now,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      helpText: 'Выберите дату начала действия',
+      cancelText: 'Отмена',
+      confirmText: 'Выбрать',
+    );
+
+    if (selectedDate != null) {
+      setState(() {
+        dateFrom = DateTime(
+          selectedDate.year,
+          selectedDate.month,
+          selectedDate.day,
+        );
+      });
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => AlertDialog(title: const Text('Параметры импорта по умолчанию'), content: SizedBox(width: 430, child: Column(mainAxisSize: MainAxisSize.min, children: [
-    TextField(controller: date, decoration: const InputDecoration(labelText: 'Дата начала действия (ДД.ММ.ГГГГ)')),
-    TextField(controller: devise, decoration: const InputDecoration(labelText: 'Код валюты FM_DEVISE_CODE')),
-    TextField(controller: type, decoration: const InputDecoration(labelText: 'Тип цены FM_PRICETYPE_CODE')),
-    TextField(controller: category, decoration: const InputDecoration(labelText: 'Категория FM_PRICE_CATEGORY_CODE')),
-    const SizedBox(height: 8), const Text('Значения из Excel имеют приоритет над значениями по умолчанию.', style: TextStyle(fontSize: 12)),
-  ])), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')), FilledButton(onPressed: () => Navigator.pop(context, widget.initial.copyWith(defaultDateFrom: date.text.trim(), defaultDeviseCode: devise.text.trim(), defaultPriceTypeCode: type.text.trim(), defaultPriceCategoryCode: category.text.trim())), child: const Text('Сохранить'))]);
+  void dispose() {
+    devise.dispose();
+    type.dispose();
+    category.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Параметры импорта по умолчанию'),
+      content: SizedBox(
+        width: 430,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: _selectDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Дата начала действия',
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.calendar_month),
+                ),
+                child: Text(
+                  dateFrom == null
+                      ? 'Выберите дату'
+                      : _formatDate(dateFrom!),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: devise,
+              decoration: const InputDecoration(
+                labelText: 'Код валюты FM_DEVISE_CODE',
+              ),
+            ),
+            TextField(
+              controller: type,
+              decoration: const InputDecoration(
+                labelText: 'Тип цены FM_PRICETYPE_CODE',
+              ),
+            ),
+            TextField(
+              controller: category,
+              decoration: const InputDecoration(
+                labelText: 'Категория FM_PRICE_CATEGORY_CODE',
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Значения из Excel имеют приоритет над значениями по умолчанию.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(
+              context,
+              widget.initial.copyWith(
+                defaultDateFrom: dateFrom == null
+                    ? ''
+                    : _formatDate(dateFrom!),
+                defaultDeviseCode: devise.text.trim(),
+                defaultPriceTypeCode: type.text.trim(),
+                defaultPriceCategoryCode: category.text.trim(),
+              ),
+            );
+          },
+          child: const Text('Сохранить'),
+        ),
+      ],
+    );
+  }
 }
+
