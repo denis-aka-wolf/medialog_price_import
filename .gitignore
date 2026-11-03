@@ -1,11 +1,135 @@
+
+# ==========================================
+# Flutter / Dart
+# ==========================================
+
 .dart_tool/
-.packages
-.pub-cache/
-build/
 .flutter-plugins
 .flutter-plugins-dependencies
-.metadata
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter_build/
+coverage/
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# ==========================================
+# Flutter Windows build
+# ==========================================
+
+windows/flutter/ephemeral/
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugin_registrant.h
+windows/flutter/generated_plugins.cmake
+
+# Build artifacts
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.obj
+*.lib
+*.exp
+*.msi
+
+# ==========================================
+# IDE
+# ==========================================
+
 .idea/
 .vscode/
 *.iml
-app_settings.json
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ==========================================
+# Visual Studio
+# ==========================================
+
+.vs/
+Debug/
+Release/
+x64/
+x86/
+ipch/
+
+# ==========================================
+# OS
+# ==========================================
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ==========================================
+# Local configuration / secrets
+# ==========================================
+
+.env
+.env.*
+!.env.example
+
+*.secret
+*.secrets
+*.key
+*.pem
+*.pfx
+*.p12
+*.cer
+
+# Application settings
+config/settings.json
+config/database.json
+config/connection.json
+
+# Local database and backups
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.trn
+
+# ==========================================
+# Logs / temporary files
+# ==========================================
+
+*.log
+logs/
+temp/
+tmp/
+*.tmp
+*.temp
+
+# ==========================================
+# Excel import files
+# ==========================================
+
+# Не отправлять пользовательские прайс-листы
+imports/
+exports/
+*.xlsx
+*.xls
+
+# ==========================================
+# Local application data
+# ==========================================
+
+BaseFiles/
+local_data/
+user_data/
+
+# ==========================================
+# Archives
+# ==========================================
+
+*.zip
+*.7z
+*.rar
