@@ -52,14 +52,33 @@ class ExcelService {
 
   static dynamic _text(Object? value) {
     if (value == null) return '';
+
     return switch (value) {
-      TextCellValue(:final value) => value,
-      IntCellValue(:final value) => value,
-      DoubleCellValue(:final value) => value,
-      BoolCellValue(:final value) => value,
-      DateCellValue(:final year, :final month, :final day) => DateTime(year, month, day),
-      DateTimeCellValue(:final year, :final month, :final day, :final hour, :final minute, :final second) => DateTime(year, month, day, hour, minute, second),
+      TextCellValue(:final value) => _spanText(value),
+      IntCellValue(:final value) => value.toString(),
+      DoubleCellValue(:final value) => value.toString(),
+      BoolCellValue(:final value) => value.toString(),
+
+      DateCellValue(:final year, :final month, :final day) =>
+        DateTime(year, month, day),
+
+      DateTimeCellValue(
+        :final year,
+        :final month,
+        :final day,
+        :final hour,
+        :final minute,
+        :final second,
+      ) => DateTime(year, month, day, hour, minute, second),
+
       _ => value.toString(),
     };
+  }
+
+  static String _spanText(TextSpan span) {
+    final text = span.text ?? '';
+    final children = span.children ?? [];
+
+    return text + children.map(_spanText).join();
   }
 }
