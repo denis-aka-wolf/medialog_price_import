@@ -1,3 +1,4 @@
+import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 import '../models/app_settings.dart';
 import '../models/excel_sheet_info.dart';
@@ -92,8 +93,14 @@ VALUES (?, ?, ?, ?, ?, ?)''', params: [serviceId, typeId, price, deviseId, date,
   DateTime? _parseDate(Object? value) {
     if (value == null || _string(value).isEmpty) return null;
     if (value is DateTime) return DateTime(value.year, value.month, value.day);
-    if (value is DateCellValue) return DateTime(value.year, value.month, value.day);
-    if (value is DateTimeCellValue) return DateTime(value.year, value.month, value.day);
+    if (value is DateCellValue) {
+      final date = value.asDateTimeLocal();
+      return DateTime(date.year, date.month, date.day);
+    }
+    if (value is DateTimeCellValue) {
+      final date = value.asDateTimeLocal();
+      return DateTime(date.year, date.month, date.day);
+    }
     final text = _string(value);
     for (final format in ['yyyy-MM-dd', 'dd.MM.yyyy', 'd.M.yyyy', 'MM/dd/yyyy']) {
       try { final d = DateFormat(format).parseStrict(text); return DateTime(d.year, d.month, d.day); } catch (_) {}

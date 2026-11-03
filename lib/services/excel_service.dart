@@ -14,7 +14,10 @@ class ExcelService {
       final sheet = _workbook!.tables[name]!;
       final rows = sheet.rows;
       final headerRow = rows.isEmpty ? <Data?>[] : rows.first;
-      final headers = headerRow.map((cell) => _text(cell?.value).trim().toUpperCase()).where((v) => v.isNotEmpty).toSet();
+      final Set<String> headers = headerRow
+          .map<String>((cell) => _text(cell?.value).toString().trim().toUpperCase())
+          .where((value) => value.isNotEmpty)
+          .toSet();
       final missing = requiredHeaders.difference(headers);
       final dataRows = rows.length > 1 ? rows.skip(1).where((r) => r.any((c) => _text(c?.value).trim().isNotEmpty)).length : 0;
       result.add(ExcelSheetInfo(
@@ -29,7 +32,9 @@ class ExcelService {
   List<Map<String, dynamic>> readRows(String sheetName) {
     final sheet = _workbook?.tables[sheetName];
     if (sheet == null || sheet.rows.isEmpty) return [];
-    final headers = sheet.rows.first.map((c) => _text(c?.value).trim().toUpperCase()).toList();
+    final headers = sheet.rows.first
+        .map((cell) => _text(cell?.value).toString().trim().toUpperCase())
+        .toList(growable: false);
     final result = <Map<String, dynamic>>[];
     for (var i = 1; i < sheet.rows.length; i++) {
       final row = sheet.rows[i];
