@@ -15,9 +15,11 @@ class ExcelService {
       final rows = sheet.rows;
       final headerRow = rows.isEmpty ? <Data?>[] : rows.first;
       final Set<String> headers = headerRow
-          .map<String>((cell) => _text(cell?.value).toString().trim().toUpperCase())
-          .where((value) => value.isNotEmpty)
-          .toSet();
+        .map<String>(
+          (cell) => _text(cell?.value).toString().trim().toUpperCase(),
+        )
+        .where((value) => value.isNotEmpty)
+        .toSet();
       final missing = requiredHeaders.difference(headers);
       final dataRows = rows.length > 1 ? rows.skip(1).where((r) => r.any((c) => _text(c?.value).trim().isNotEmpty)).length : 0;
       result.add(ExcelSheetInfo(
