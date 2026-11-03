@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/app_settings.dart';
 import '../models/excel_sheet_info.dart';
 import 'database_service.dart';
+import 'log_service.dart';
 
 class ImportService {
   ImportService(this.db);
@@ -59,8 +60,36 @@ VALUES (?, ?, ?, ?, ?, ?)''', params: [serviceId, typeId, price, deviseId, date,
           rethrow;
         }
         logs.add(ImportLogEntry(sheet: sheetName, excelRow: row['_EXCEL_ROW'] as int? ?? i + 2, serviceCode: serviceCode, price: priceText, status: ImportStatus.success, message: existing.isEmpty ? 'Создана новая цена.' : 'Цена обновлена.'));
-      } catch (e) {
-        logs.add(ImportLogEntry(sheet: sheetName, excelRow: row['_EXCEL_ROW'] as int? ?? i + 2, serviceCode: serviceCode, price: priceText, status: ImportStatus.error, message: e.toString().replaceFirst('Exception: ', '')));
+      } catch (e, stackTrace) {
+        final excelRow = row['_EXCEL_ROW'] as int? ?? i + 2;
+
+        await LogService.instance.error(
+          'ImportService',
+          'Ошибка импорта строки Excel.',
+          exception: e,
+          stackTrace: stackTrace,
+          context: {
+            'sheet': sheetName,
+            'excelRow': excelRow,
+            'serviceCode': serviceCode,
+            'price': priceText,
+            'rowData': row,
+          },
+        );
+
+        logs.add(
+          ImportLogEntry(
+            sheet: sheetName,
+            excelRow: excelRow,
+            serviceCode: serviceCode,
+            price: priceText,
+            status: ImportStatus.error,
+            message: e.toString().replaceFirst(
+              'Exception: ',
+              '',
+            ),
+          ),
+        );
       }
       onProgress(i + 1, rows.length);
     }
