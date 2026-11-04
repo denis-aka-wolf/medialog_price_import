@@ -102,7 +102,7 @@ WHERE CODE = ${_sqlString(serviceCode)}
           '''
 SELECT TOP 1 FM_PRICETYPE_ID
 FROM FM_PRICETYPE
-WHERE FM_PRICETYPE_CODE = ${_sqlString(priceTypeCode)}
+WHERE CODE = ${_sqlString(priceTypeCode)}
 ''',
         );
 
