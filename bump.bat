@@ -1,3 +1,4 @@
+
 @echo off
 chcp 65001 > nul
 setlocal DisableDelayedExpansion
@@ -94,7 +95,7 @@ echo.
 echo Создан коммит: %COMMIT_SHA%
 
 :: ------------------------------------------------------------
-:: 6. Обновление версий и changelog
+:: 6. Обновление версий, build.txt и changelog
 :: ------------------------------------------------------------
 
 echo.
@@ -104,6 +105,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$ErrorActionPreference = 'Stop';" ^
     "try {" ^
         "$versionFile = 'version.txt';" ^
+        "$buildFile = 'build.txt';" ^
         "$pubspecFile = 'pubspec.yaml';" ^
         "$changelogFile = 'changelog.md';" ^
         "$bumpType = $env:BUMP_TYPE;" ^
@@ -116,8 +118,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
         "$match = [regex]::Match($pubContent, $pattern);" ^
         "if (-not $match.Success) { throw 'Не найдена корректная версия в pubspec.yaml.' };" ^
         "$pubVersion = $match.Groups[1].Value;" ^
-        "$buildText = $match.Groups[2].Value;" ^
-        "if ([string]::IsNullOrEmpty($buildText)) { $buildText = '0' };" ^
+        "$pubBuildText = $match.Groups[2].Value;" ^
+        "if (Test-Path $buildFile) {" ^
+            "$buildText = [System.IO.File]::ReadAllText($buildFile).Trim();" ^
+            "if ($buildText -notmatch '^\d+$') { throw 'Некорректный формат build.txt. Ожидается целое неотрицательное число.' };" ^
+            "[long]$buildNum = $buildText;" ^
+        "} else {" ^
+            "if ([string]::IsNullOrEmpty($pubBuildText)) { $pubBuildText = '0' };" ^
+            "[long]$buildNum = $pubBuildText;" ^
+            "Write-Output ('build.txt отсутствует. Используем Build Number из pubspec.yaml: ' + $buildNum);" ^
+        "};" ^
+        "if ($buildNum -eq [long]::MaxValue) { throw 'Build Number достиг максимального значения.' };" ^
+        "$parts = $null;" ^
         "if (Test-Path $versionFile) {" ^
             "$current = [System.IO.File]::ReadAllText($versionFile).Trim();" ^
             "if ($current -notmatch '^\d+\.\d+\.\d+$') { throw 'Некорректный формат версии в version.txt. Ожидается X.Y.Z.' };" ^
@@ -136,20 +148,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
             "default { throw 'Неизвестный тип изменения версии.' }" ^
         "};" ^
         "$newVersion = '{0}.{1}.{2}' -f $major, $minor, $patch;" ^
-        "[long]$buildNum = [long]$buildText + 1;" ^
-        "$newPubVersion = 'version: {0}+{1}' -f $newVersion, $buildNum;" ^
+        "$newBuildNum = $buildNum + 1;" ^
+        "$newPubVersion = 'version: {0}+{1}' -f $newVersion, $newBuildNum;" ^
         "$rx = [regex]::new($pattern);" ^
-        "$pubContent = $rx.Replace($pubContent, $newPubVersion, 1);" ^
-        "[System.IO.File]::WriteAllText($pubspecFile, $pubContent, $encoding);" ^
+        "$newPubContent = $rx.Replace($pubContent, $newPubVersion, 1);" ^
+        "[System.IO.File]::WriteAllText($pubspecFile, $newPubContent, $encoding);" ^
         "[System.IO.File]::WriteAllText($versionFile, $newVersion + [Environment]::NewLine, $encoding);" ^
+        "[System.IO.File]::WriteAllText($buildFile, $newBuildNum.ToString() + [Environment]::NewLine, $encoding);" ^
         "$date = Get-Date -Format 'yyyy-MM-dd';" ^
         "$nl = [Environment]::NewLine;" ^
         "$newEntry = '## [' + $newVersion + '] - ' + $date + ' (' + $sha + ')' + $nl + '* ' + $message + $nl + $nl;" ^
         "if (Test-Path $changelogFile) { $oldContent = [System.IO.File]::ReadAllText($changelogFile) } else { $oldContent = '' };" ^
         "[System.IO.File]::WriteAllText($changelogFile, $newEntry + $oldContent, $encoding);" ^
         "Write-Output ('Версия проекта: ' + $current + ' -> ' + $newVersion);" ^
-        "Write-Output ('Flutter version: ' + $newVersion + '+' + $buildNum);" ^
-        "Write-Output ('Build number: ' + $buildNum);" ^
+        "Write-Output ('Flutter version: ' + $newVersion + '+' + $newBuildNum);" ^
+        "Write-Output ('Build Number: ' + $buildNum + ' -> ' + $newBuildNum);" ^
+        "Write-Output 'build.txt обновлён (локальный файл).';" ^
         "Write-Output ('Changelog обновлён. SHA: ' + $sha);" ^
     "} catch {" ^
         "[Console]::Error.WriteLine('ОШИБКА: ' + $_.Exception.Message);" ^
@@ -210,6 +224,7 @@ echo ============================================================
 echo.
 echo Первоначальный коммит: %COMMIT_SHA%
 echo Обновление версии: успешно
+echo Build Number: обновлён
 echo Changelog: обновлён
 echo Второй коммит: создан
 echo.
