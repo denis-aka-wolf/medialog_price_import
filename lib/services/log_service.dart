@@ -35,8 +35,11 @@ class LogService {
           'operatingSystemVersion': Platform.operatingSystemVersion,
         },
       );
-    } catch (_) {
-      // Ошибка логирования не должна останавливать приложение.
+    } catch (e, stackTrace) {
+      // Если каталог логов создать не удалось, хотя бы выводим причину
+      // в stderr. Ошибка логирования не должна останавливать приложение.
+      stderr.writeln('LogService initialization failed: $e');
+      stderr.writeln(stackTrace);
     }
   }
 

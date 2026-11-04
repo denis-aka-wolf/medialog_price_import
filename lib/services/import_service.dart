@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/app_settings.dart';
 import '../models/excel_sheet_info.dart';
 import 'database_service.dart';
+import 'log_service.dart';
 
 class ImportService {
   ImportService(this.db);
@@ -17,6 +18,12 @@ class ImportService {
     required void Function(int done, int total) onProgress,
   }) async {
     final logs = <ImportLogEntry>[];
+
+    await LogService.instance.info(
+      'ImportService',
+      'Начата обработка листа Excel.',
+      context: {'sheet': sheetName, 'rowCount': rows.length},
+    );
 
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i];
@@ -202,17 +209,26 @@ WHERE FM_SERVPRICE_ID = $priceId
           }
 
           await db.execute('COMMIT TRANSACTION');
-        } catch (_) {
+        } catch (transactionError, transactionStack) {
           try {
             await db.execute(
               'IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION',
             );
-          } catch (_) {
-            // Не заменяем первоначальную ошибку
-            // возможной ошибкой отката транзакции.
+          } catch (rollbackError, rollbackStack) {
+            await LogService.instance.error(
+              'ImportService',
+              'Не удалось выполнить откат транзакции.',
+              exception: rollbackError,
+              stackTrace: rollbackStack,
+              context: {
+                'sheet': sheetName,
+                'excelRow': _excelRow(row, i),
+                'serviceCode': serviceCode,
+              },
+            );
           }
 
-          rethrow;
+          Error.throwWithStackTrace(transactionError, transactionStack);
         }
 
         logs.add(
@@ -227,11 +243,24 @@ WHERE FM_SERVPRICE_ID = $priceId
                 : 'Цена обновлена.',
           ),
         );
-      } catch (e) {
+      } catch (e, stackTrace) {
+        final excelRow = _excelRow(row, i);
+        await LogService.instance.error(
+          'ImportService',
+          'Ошибка обработки строки Excel.',
+          exception: e,
+          stackTrace: stackTrace,
+          context: {
+            'sheet': sheetName,
+            'excelRow': excelRow,
+            'serviceCode': serviceCode,
+            'price': priceText,
+          },
+        );
         logs.add(
           ImportLogEntry(
             sheet: sheetName,
-            excelRow: _excelRow(row, i),
+            excelRow: excelRow,
             serviceCode: serviceCode,
             price: priceText,
             status: ImportStatus.error,
@@ -245,6 +274,17 @@ WHERE FM_SERVPRICE_ID = $priceId
 
       onProgress(i + 1, rows.length);
     }
+
+    await LogService.instance.info(
+      'ImportService',
+      'Обработка листа Excel завершена.',
+      context: {
+        'sheet': sheetName,
+        'total': rows.length,
+        'success': logs.where((e) => e.status == ImportStatus.success).length,
+        'errors': logs.where((e) => e.status == ImportStatus.error).length,
+      },
+    );
 
     return logs;
   }

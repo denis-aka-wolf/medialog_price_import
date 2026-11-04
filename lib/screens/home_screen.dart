@@ -10,6 +10,7 @@ import '../services/database_service.dart';
 import '../services/excel_service.dart';
 import '../services/import_service.dart';
 import '../services/settings_service.dart';
+import '../services/log_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -98,7 +99,20 @@ class _HomeScreenState extends State<HomeScreen> {
       if (showSuccess) {
         _notice('Подключение успешно установлено.');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      await LogService.instance.error(
+        'HomeScreen',
+        'Ошибка подключения к базе данных на уровне интерфейса.',
+        exception: e,
+        stackTrace: stackTrace,
+        context: {
+          'server': settings.server,
+          'port': settings.port,
+          'database': settings.database,
+          'driver': settings.driver,
+          'trustedConnection': settings.trustedConnection,
+        },
+      );
       if (mounted) {
         setState(() {
           _connected = false;
@@ -136,26 +150,50 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _pickExcel() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx'],
-      allowMultiple: false,
-    );
+    FilePickerResult? result;
 
-    if (result == null || result.files.single.path == null) {
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx'],
+        allowMultiple: false,
+      );
+    } catch (e, stackTrace) {
+      await LogService.instance.error(
+        'HomeScreen',
+        'Ошибка открытия диалога выбора Excel-файла.',
+        exception: e,
+        stackTrace: stackTrace,
+      );
+
+      _notice('Не удалось открыть выбор файла: $e', isError: true);
+      return;
+    }
+
+    // Создаём final-переменную для корректной проверки nullable.
+    final pickedResult = result;
+
+    if (pickedResult == null || pickedResult.files.isEmpty) {
+      return;
+    }
+
+    final filePath = pickedResult.files.single.path;
+
+    if (filePath == null || filePath.isEmpty) {
+      _notice('Не удалось получить путь к выбранному файлу.', isError: true);
       return;
     }
 
     setState(() {
       _busy = true;
-      _filePath = result.files.single.path;
+      _filePath = filePath;
       _sheets = [];
       _selectedSheets.clear();
       _logs.clear();
     });
 
     try {
-      final sheets = await _excel.inspect(_filePath!);
+      final sheets = await _excel.inspect(filePath);
 
       if (!mounted) return;
 
@@ -165,13 +203,16 @@ class _HomeScreenState extends State<HomeScreen> {
           sheets.where((s) => s.valid).map((s) => s.name),
         );
       });
-
-      //_notice('Excel проанализирован. Листов: ${sheets.length}.');
-    } catch (e) {
-      _notice(
-        'Не удалось прочитать Excel: $e',
-        isError: true,
+    } catch (e, stackTrace) {
+      await LogService.instance.error(
+        'HomeScreen',
+        'Не удалось загрузить выбранный Excel-файл.',
+        exception: e,
+        stackTrace: stackTrace,
+        context: {'filePath': filePath},
       );
+
+      _notice('Не удалось прочитать Excel: $e', isError: true);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -266,7 +307,17 @@ class _HomeScreenState extends State<HomeScreen> {
           'ошибок: ${_logs.where((e) => e.status == ImportStatus.error).length}.',
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      await LogService.instance.error(
+        'HomeScreen',
+        'Критическая ошибка выполнения импорта.',
+        exception: e,
+        stackTrace: stackTrace,
+        context: {
+          'filePath': _filePath,
+          'selectedSheets': targets.map((sheet) => sheet.name).toList(),
+        },
+      );
       _notice(
         'Ошибка импорта: $e',
         isError: true,
