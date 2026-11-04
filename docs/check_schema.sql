@@ -24,3 +24,4 @@ JOIN sys.types AS t ON t.user_type_id = c.user_type_id
 WHERE OBJECT_NAME(c.object_id) IN
     (N'FM_SERV', N'FM_SERVPRICE', N'FM_PRICETYPE', N'FM_DEVISE', N'FM_PRICE_CATEGORY')
 ORDER BY table_name, c.column_id;
+

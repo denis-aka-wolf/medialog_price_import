@@ -133,3 +133,11 @@ user_data/
 *.zip
 *.7z
 *.rar
+
+# ==========================================
+# Force include specific documentation files
+# ==========================================
+!docs/bump.md
+!docs/ПримерФайла.xlsx
+!docs/check_schema.sql
+# git add -f docs/bump.md docs/ПримерФайлв.xlsx docs/check_schema.sql
