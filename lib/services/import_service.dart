@@ -119,7 +119,7 @@ WHERE CODE = ${_sqlString(priceTypeCode)}
         // Поиск валюты.
         final deviseId = await _lookupOptional(
           'FM_DEVISE',
-          'FM_DEVISE_CODE',
+          'CODE',
           'FM_DEVISE_ID',
           deviseCode,
         );
@@ -127,7 +127,7 @@ WHERE CODE = ${_sqlString(priceTypeCode)}
         // Поиск категории цены.
         final categoryId = await _lookupOptional(
           'FM_PRICE_CATEGORY',
-          'FM_PRICE_CATEGORY_CODE',
+          'CODE',
           'FM_PRICE_CATEGORY_ID',
           categoryCode,
         );
