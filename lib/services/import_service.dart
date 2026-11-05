@@ -1,3 +1,4 @@
+
 import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 
@@ -164,6 +165,38 @@ WHERE FM_SERV_ID = $serviceId
 
         try {
           if (existing.isEmpty) {
+            // Получаем новый ID через штатную процедуру Медиалог.
+            await db.execute(
+              '''
+DECLARE @NewId int;
+
+EXEC dbo.up_get_id
+    @KeyName = 'FM_SERVPRICE',
+    @Shift = 1,
+    @ID = @NewId OUTPUT;
+''',
+            );
+
+            // Получаем зарезервированный ID из счётчика.
+            // При Shift = 1 LAST_VALUE равен выданному ID.
+            final idResult = await db.query(
+              '''
+SELECT TOP 1 LAST_VALUE
+FROM ID_VALUES
+WHERE KEY_NAME = 'FM_SERVPRICE'
+''',
+            );
+
+            if (idResult.isEmpty) {
+              throw const FormatException(
+                'Не найдена запись счётчика ID для FM_SERVPRICE в ID_VALUES.',
+              );
+            }
+
+            final newPriceId = _int(
+              idResult.first['LAST_VALUE'],
+            );
+
             final deviseValue = deviseId == null
                 ? 'NULL'
                 : deviseId.toString();
@@ -176,6 +209,7 @@ WHERE FM_SERV_ID = $serviceId
               '''
 INSERT INTO FM_SERVPRICE
 (
+    FM_SERVPRICE_ID,
     FM_SERV_ID,
     FM_PRICETYPE_ID,
     PRICE,
@@ -185,6 +219,7 @@ INSERT INTO FM_SERVPRICE
 )
 VALUES
 (
+    $newPriceId,
     $serviceId,
     $typeId,
     CAST($price AS MONEY),
@@ -228,7 +263,10 @@ WHERE FM_SERVPRICE_ID = $priceId
             );
           }
 
-          Error.throwWithStackTrace(transactionError, transactionStack);
+          Error.throwWithStackTrace(
+            transactionError,
+            transactionStack,
+          );
         }
 
         logs.add(
